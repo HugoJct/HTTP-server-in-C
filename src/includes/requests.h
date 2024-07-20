@@ -16,7 +16,7 @@ struct http_command {
   char http_version[10];
 };
 
-void parse_request(char *cmd, struct http_request_header *header, char *req);
-void parse_command(struct http_command *cmd, char *command);
+void parse_request(char *req, struct http_request_header *header,
+                   struct http_command *cmd);
 
 #endif // !REQUESTS_H

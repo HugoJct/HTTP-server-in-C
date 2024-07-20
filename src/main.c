@@ -1,36 +1,37 @@
-#include "requests.h"
-#include "responses.h"
-#include "socket_factory.h"
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+
+#include "requests.h"
+#include "responses.h"
+#include "socket_factory.h"
+#include "file.h"
 
 #define REQUEST_MAX_SIZE 8192
 
 void communicate(int sockfd) {
 
   char buf[REQUEST_MAX_SIZE + 1];
-  int ret = recv(sockfd, buf, REQUEST_MAX_SIZE, 0);
 
-  buf[ret] = '\0';
+  int ret = recv(sockfd, buf, REQUEST_MAX_SIZE, 0);
   if(ret < 0) {
     perror("recv"); 
+    goto end_conn;
   }
-  //printf("%s\n", buf);
+  buf[ret] = '\0';
+  // printf("%s\n", buf);
 
   struct http_request_header hd;
-  char cmd[100];
-  parse_request(cmd, &hd, buf); 
-
-  printf("%s\n", cmd);
-
   struct http_command command;
-  parse_command(&command, cmd);
+  parse_request(buf, &hd, &command); 
+
+  printf("%s %s %s\n",  command.command, command.target, command.http_version);
 
   if(strcmp(command.command, "GET") != 0) {
     fputs("Only GET supported\n", stderr);
@@ -44,59 +45,55 @@ void communicate(int sockfd) {
     sprintf(path, "./host/%s", command.target);
   }
 
-  // printf("REQ: %s\n\n", path);
   int fd = open(path, O_RDONLY);
   if(fd < 0) {
-    perror("open");
-
-    char *status = "HTTP/1.1 404 NOT FOUND";
-    send(sockfd, status, strlen(status), 0);
+    send_404(sockfd);
     goto end_conn;
   }
 
-  ret = read(fd, buf, 499);
+  int filesize = get_file_size(fd);
+
+  char *filecontent = malloc(filesize);
+  if(filecontent == NULL) {
+    perror("malloc content");
+    goto end_conn;
+  }
+
+  ret = read(fd, filecontent, filesize);
   if(ret < 0) {
     perror("read");
-    goto end_conn;
+    goto free_content;
   }
-  buf[ret] = '\0';
 
   close(fd);
 
-  int index = 0;
-  char response[1000];
   char *status =  "HTTP/1.1 200 OK\n";
 
-  char headers[200];
+  char *response = malloc(filesize + HTTP_RESPONSE_HEADERS_MAX_LENGTH);
+  if(response == NULL) {
+    perror("malloc response");
+    goto free_res;
+  }
+
   struct http_response res_hd = {
     .server = "ogu ^3^",
-    .content_type = "text/html",
-    .content_length = strlen(buf)
+    .content_length = filesize
   };
-  build_response(&res_hd, headers);
+  get_content_type(res_hd.content_type, path);
 
-  strcpy(response, status);
-  index += strlen(status);
+  int res_size = build_response(response, &res_hd, status, filecontent);
 
-  strcpy(response+index, headers);
-  index += strlen(headers);
-  
-  strcpy(response + index, buf);
-  index += strlen(buf);
-
-  headers[index] = '\0';
-  printf("====\n%s\n====\n", response);
-
-  ret = send(sockfd, response, strlen(response), 0);
+  ret = send(sockfd, response, res_size, 0);
   if(ret < 0) {
     perror("send");
   }
 
+free_res:
+  free(response);
+free_content:
+  free(filecontent);
 end_conn:
-  ret = close(sockfd);
-  if(ret < 0) {
-    perror("close");
-  }
+  close(sockfd);
 }
 
 int main(int argc, char **argv) {

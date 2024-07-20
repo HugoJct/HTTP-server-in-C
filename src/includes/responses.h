@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 
+#define HTTP_RESPONSE_HEADERS_MAX_LENGTH 600
 #define HTTP_RESPONSE_HEADER_COMPONENT_MAX_LENGTH 200
 
 struct http_response {
@@ -12,6 +13,8 @@ struct http_response {
   size_t content_length;
 };
 
-void build_response(struct http_response *rep, char *header);
+int build_response(char *response, struct http_response *rep, char *status,
+                   char *filecontent);
+int send_404(int fd);
 
 #endif // !RESPONSES_H
