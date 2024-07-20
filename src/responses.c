@@ -35,9 +35,21 @@ int build_response(char *response, struct http_response *rep, char *status,
   return offset;
 }
 
-int send_404(int fd) {
+int send_not_found(int fd) {
 
   char *status = "HTTP/1.1 404 NOT FOUND";
+
+  int ret = send(fd, status, strlen(status), 0);
+  if (ret < 0) {
+    return -1;
+  }
+
+  return 0;
+}
+
+int send_bad_request(int fd) {
+
+  char *status = "HTTP/1.1 400 BAD REQUEST";
 
   int ret = send(fd, status, strlen(status), 0);
   if (ret < 0) {

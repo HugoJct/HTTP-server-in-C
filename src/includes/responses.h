@@ -15,6 +15,7 @@ struct http_response {
 
 int build_response(char *response, struct http_response *rep, char *status,
                    char *filecontent);
-int send_404(int fd);
+int send_not_found(int fd);
+int send_bad_request(int fd);
 
 #endif // !RESPONSES_H
