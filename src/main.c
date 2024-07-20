@@ -6,21 +6,27 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "socket_factory.h"
 #include "http.h"
+#include "socket_factory.h"
 
 int main(int argc, char **argv) {
 
-  if (argc != 2) {
-    fputs("Wrong argument count\n", stderr);
-    goto error;
+  int port = 80;
+  int opt;
+  char *help = "./http_server\n\t-p <port>: launch server on specified port";
+
+  while ((opt = getopt(argc, argv, "hp:")) != -1) {
+    switch (opt) {
+    case 'p':
+      port = atoi(optarg);
+      break;
+    case 'h':
+      printf("%s\n", help);
+      return EXIT_SUCCESS;
+    }
   }
 
-  int port = atoi(argv[1]);
-  if (port == 0) {
-    fputs("wrong port\n", stderr);
-    goto error;
-  }
+  printf("Launching on %d\n", port);
 
   int sock = new_ipv4_tcp_socket(port);
   if (sock < 0) {
