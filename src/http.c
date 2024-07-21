@@ -60,6 +60,7 @@ void communicate(int sockfd) {
     }
 
     int filesize = get_file_size(fd);
+    int last_modification = get_last_modification_date(fd);
 
     char *filecontent = malloc(filesize);
     if (filecontent == NULL) {
@@ -75,8 +76,6 @@ void communicate(int sockfd) {
 
     close(fd);
 
-    char *status = "HTTP/1.1 200 OK\n";
-
     char *response = malloc(filesize + HTTP_RESPONSE_HEADERS_MAX_LENGTH);
     if (response == NULL) {
       perror("malloc response");
@@ -87,7 +86,7 @@ void communicate(int sockfd) {
                                    .content_length = filesize};
     get_content_type(res_hd.content_type, path);
 
-    int res_size = build_response(response, &res_hd, status, filecontent);
+    int res_size = build_response(response, &res_hd, response_success, filecontent, last_modification);
 
     ret = send(sockfd, response, res_size, 0);
     if (ret < 0) {

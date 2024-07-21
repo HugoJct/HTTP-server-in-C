@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -50,13 +51,16 @@ int main(int argc, char **argv) {
       goto error;
     }
 
+    char addr_str[100];
+    inet_ntop(AF_INET, &remote.sin_addr, addr_str, 100);
+
     int pid = fork();
     if (pid < 0) {
       perror("fork");
       goto error;
     } else if (pid == 0) { // child
       close(sock);
-      printf("new socket\n");
+      printf("New connection: %s:%d\n", addr_str, remote.sin_port);
       communicate(remote_fd);
       break;
     }

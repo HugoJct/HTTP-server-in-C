@@ -46,3 +46,16 @@ size_t get_file_size(int fd) {
 
   return st.st_size;
 }
+
+int get_last_modification_date(int fd) {
+
+  struct stat st;
+
+  int ret = fstat(fd, &st);
+  if(ret < 0) {
+    perror("fstat");
+    return -1;
+  }
+
+  return st.st_mtim.tv_sec;
+}
