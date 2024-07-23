@@ -13,11 +13,15 @@
 int main(int argc, char **argv) {
 
   int port = 80;
+  int onlyv6 = 1;
   int opt;
   char *help = "./http_server\n\t-p <port>: launch server on specified port";
 
-  while ((opt = getopt(argc, argv, "hp:")) != -1) {
+  while ((opt = getopt(argc, argv, "4hp:")) != -1) {
     switch (opt) {
+    case '4':
+      onlyv6 = 0;
+      break;
     case 'p':
       port = atoi(optarg);
       break;
@@ -27,19 +31,19 @@ int main(int argc, char **argv) {
     }
   }
 
-  printf("Launching on %d\n", port);
+  printf("Launching on %d %s\n", port, onlyv6 ? "" : "with IPv4 support");
 
-  int sock = new_ipv4_tcp_socket(port);
+  int sock = new_ipv6_tcp_socket(port, onlyv6);
   if (sock < 0) {
     goto close_sock_error;
   }
 
-  struct sockaddr_in remote;
+  struct sockaddr_in6 remote;
 
   int ret = listen(sock, 1);
   if (ret < 0) {
     perror("listen");
-    goto error;
+    goto close_sock_error;
   }
 
   socklen_t length = sizeof(remote);
@@ -48,11 +52,11 @@ int main(int argc, char **argv) {
     int remote_fd = accept(sock, (struct sockaddr *)&remote, &length);
     if (remote_fd < 0) {
       perror("accept");
-      goto error;
+      goto close_sock_error;
     }
 
     char addr_str[100];
-    inet_ntop(AF_INET, &remote.sin_addr, addr_str, 100);
+    inet_ntop(AF_INET6, &remote.sin6_addr, addr_str, 100);
 
     int pid = fork();
     if (pid < 0) {
@@ -60,7 +64,7 @@ int main(int argc, char **argv) {
       goto error;
     } else if (pid == 0) { // child
       close(sock);
-      printf("New connection: %s:%d\n", addr_str, remote.sin_port);
+      printf("New connection: [%s]:%d\n", addr_str, remote.sin6_port);
       communicate(remote_fd);
       break;
     }

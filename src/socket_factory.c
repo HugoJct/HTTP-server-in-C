@@ -39,7 +39,7 @@ new_ipv4_tcp_socket_error:
   return -1;
 }
 
-int new_ipv6_tcp_socket(int port) {
+int new_ipv6_tcp_socket(int port, int v6only) {
 
   int sock = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
   if (sock < 0) {
@@ -49,6 +49,12 @@ int new_ipv6_tcp_socket(int port) {
 
   int flag = 1;
   int ret = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
+  if(ret < 0) {
+    perror("setsockopt");
+    goto new_ipv6_tcp_socket_error;
+  }
+
+  ret = setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, &v6only, sizeof(v6only));
   if(ret < 0) {
     perror("setsockopt");
     goto new_ipv6_tcp_socket_error;
