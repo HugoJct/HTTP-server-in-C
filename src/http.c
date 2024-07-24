@@ -1,14 +1,15 @@
 #include "http.h"
 #include "file.h"
+#include "logger.h"
 #include "requests.h"
 #include "responses.h"
 
 #include <fcntl.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 void communicate(int sockfd) {
 
@@ -26,23 +27,26 @@ void communicate(int sockfd) {
       goto end_conn;
     }
     buf[ret] = '\0';
-    // printf("%s\n", buf);
 
     struct http_request req;
     ret = parse_request(buf, &req);
     if (ret < 0) {
       send_bad_request(sockfd);
-      printf("bad request\n");
+      log_warn("Bad Request");
       goto end_conn;
     }
 
-    // printf("%s %s %s\n", req.cmd.command, req.cmd.target, req.cmd.http_version);
-    // printf("Host: %s\n", req.hd.host);
-    // printf("Referer: %s\n", req.hd.referer);
-    // printf("Keepalive: %d\n", req.hd.keepalive);
+    char headersbuf[1000];
+    char *del = "<<<<<<<<<<<<<<<<<<<<<<<IN<<<<<<<<<<<<<<<<<<<<<<<<<<<";
+    sprintf(headersbuf,
+            "\n%s\n%s %s %s\nHost: %s\nReferer: %s\nKeepalive: "
+            "%d\n%s\n",
+            del, req.cmd.command, req.cmd.target, req.cmd.http_version,
+            req.hd.host, req.hd.referer, req.hd.keepalive, del);
+    log_debug(headersbuf);
 
     if (strcmp(req.cmd.command, "GET") != 0) {
-      fputs("Only GET supported\n", stderr);
+      log_error("Only GET supported");
       goto end_conn;
     }
 
@@ -82,17 +86,27 @@ void communicate(int sockfd) {
       goto free_res;
     }
 
-    struct http_response res_hd = {.server = "ogu ^3^",
-                                   .content_length = filesize};
+    struct http_response res_hd = {
+        .server = "ogu ^3^",
+        .content_length = filesize,
+        .last_modified = last_modification,
+    };
     get_content_type(res_hd.content_type, path);
 
-    int res_size = build_response(response, &res_hd, response_success, filecontent, last_modification);
+    int res_size =
+        build_response(response, &res_hd, response_success, filecontent);
 
     ret = send(sockfd, response, res_size, 0);
     if (ret < 0) {
       perror("send");
     }
     keepsocket = req.hd.keepalive;
+
+    char resheadbuf[500];
+    char *del2 = ">>>>>>>>>>>>>>>>>>>>>>OUT>>>>>>>>>>>>>>>>>>>>>>>>>>>";
+    build_headers(resheadbuf, &res_hd);
+    sprintf(headersbuf,"\n%s\n%s%s\n",del2,resheadbuf, del2);
+    log_debug(headersbuf);
 
   free_res:
     free(response);
