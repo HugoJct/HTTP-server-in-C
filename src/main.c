@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
         ret = -1;
       }
       if (ret < 0) {
-        log_warn("Log level invalid");
+        log_write(WARN, "Log level invalid");
       }
       break;
     case 'h':
@@ -56,14 +56,17 @@ int main(int argc, char **argv) {
     }
   }
 
-  char launchmsg[200];
-  sprintf(launchmsg, "Launching on %d %s", port,
-          onlyv6 ? "" : "with IPv4 support");
-  log_info(launchmsg);
+  ret = log_init();
+  if(ret < 0) {
+    fputs("Error initializing logger", stderr);
+    goto error;
+  }
+
+  log_write(INFO, "Launching on %d %s\n", port, onlyv6 ? "" : "with IPv4 support");
 
   int sock = new_ipv6_tcp_socket(port, onlyv6);
   if (sock < 0) {
-    log_error("Failed creating socket");
+    log_write(ERROR, "Failed creating socket");
     goto error;
   }
 
@@ -72,7 +75,7 @@ int main(int argc, char **argv) {
   ret = listen(sock, 1);
   if (ret < 0) {
     perror("listen");
-    log_error("Failed listening on socket");
+    log_write(ERROR, "Failed listening on socket");
     goto close_sock_error;
   }
 
@@ -82,27 +85,26 @@ int main(int argc, char **argv) {
     int remote_fd = accept(sock, (struct sockaddr *)&remote, &length);
     if (remote_fd < 0) {
       perror("accept");
-      log_error("Failed accepting connection");
+      log_write(ERROR, "Failed accepting connection");
       goto close_sock_error;
     }
 
-    char addr_str[100];
-    inet_ntop(AF_INET6, &remote.sin6_addr, addr_str, 100);
+    char *addr_str = malloc(100);
+    char format_tmp[100];
+    inet_ntop(AF_INET6, &remote.sin6_addr, format_tmp, 100);
+    sprintf(addr_str, "[%s]:%d",  format_tmp, remote.sin6_port);
 
     int pid = fork();
     if (pid < 0) {
       perror("fork");
-      log_error("Could not fork");
+      log_write(ERROR, "Could not fork");
       goto close_sock_error;
     } else if (pid == 0) { // child
       close(sock);
 
-      char newconbuf[200];
-      sprintf(newconbuf, "New connection: [%s]:%d", addr_str,
-              remote.sin6_port);
-      log_info(newconbuf);
+      log_write(INFO, "New connection: %s\n", addr_str);
 
-      communicate(remote_fd);
+      communicate(remote_fd, addr_str);
       break;
     }
     close(remote_fd);
