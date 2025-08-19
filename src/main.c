@@ -98,8 +98,7 @@ int main(int argc, char **argv) {
 
     int pid = fork();
     if (pid < 0) {
-      perror("fork");
-      log_write(ERROR, "Could not fork");
+      log_write(ERROR, "Fork error : %s", strerror(errno));
       goto close_sock_error;
     } else if (pid == 0) { // child
       close(sock);

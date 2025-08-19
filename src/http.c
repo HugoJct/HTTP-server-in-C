@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <errno.h>
 
 void communicate(int sockfd, char *addr_str) {
 
@@ -21,7 +22,7 @@ void communicate(int sockfd, char *addr_str) {
     keepsocket = 0;
     int ret = recv(sockfd, buf, REQUEST_MAX_SIZE, 0);
     if (ret < 0) {
-      perror("recv");
+      log_write(WARN, "Error reading socket : %s", strerror(errno));
       goto end_conn;
     } else if (ret == 0) {
       goto end_conn;
@@ -32,19 +33,20 @@ void communicate(int sockfd, char *addr_str) {
     ret = parse_request(buf, &req);
     if (ret < 0) {
       send_bad_request(sockfd);
-      log_write(WARN, "Bad Request\n");
+      log_write(WARN, "Bad Request");
       goto end_conn;
     }
 
-    log_write(DEBUG,
-              "\n%s\n<<<<<<<<<<<<<<<<<<<<<<<IN<<<<<<<<<<<<<<<<<<<<<<<<<<<\n%s %s "
-              "%s\nHost: %s\nReferer: %s\nKeepalive: "
-              "%d\n<<<<<<<<<<<<<<<<<<<<<<<IN<<<<<<<<<<<<<<<<<<<<<<<<<<<\n\n",
-              addr_str, req.cmd.command, req.cmd.target, req.cmd.http_version,
-              req.hd.host, req.hd.referer, req.hd.keepalive);
+    log_write(
+        DEBUG,
+        "\n%s\n<<<<<<<<<<<<<<<<<<<<<<<IN<<<<<<<<<<<<<<<<<<<<<<<<<<<\n%s %s "
+        "%s\nHost: %s\nReferer: %s\nKeepalive: "
+        "%d\n<<<<<<<<<<<<<<<<<<<<<<<IN<<<<<<<<<<<<<<<<<<<<<<<<<<<\n\n",
+        addr_str, req.cmd.command, req.cmd.target, req.cmd.http_version,
+        req.hd.host, req.hd.referer, req.hd.keepalive);
 
     if (strcmp(req.cmd.command, "GET") != 0) {
-      log_write(WARN, "Only GET supported\n");
+      log_write(WARN, "Only GET supported");
       goto end_conn;
     }
 
@@ -57,25 +59,28 @@ void communicate(int sockfd, char *addr_str) {
 
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
-      log_write(INFO, "File not found\n");
+      log_write(INFO, "File not found");
       send_not_found(sockfd);
       goto end_conn;
     }
 
     int filesize = get_file_size(fd);
+    if (filesize < 0) {
+      send_internal_server_error(fd);
+      goto end_conn;
+    }
+
     int last_modification = get_last_modification_date(fd);
 
     char *filecontent = malloc(filesize);
     if (filecontent == NULL) {
-      perror("malloc content");
-      log_write(WARN, "Could not alloc space for file\n");
+      log_write(WARN, "Could not alloc space for file : %s", strerror(errno));
       goto end_conn;
     }
 
     ret = read(fd, filecontent, filesize);
     if (ret < 0) {
-      perror("read");
-      log_write(WARN, "Could not read file: %s\n", path);
+      log_write(WARN, "Could not read file %s : %s", path, strerror(errno));
       goto free_content;
     }
 
@@ -83,8 +88,8 @@ void communicate(int sockfd, char *addr_str) {
 
     char *response = malloc(filesize + HTTP_RESPONSE_HEADERS_MAX_LENGTH);
     if (response == NULL) {
-      perror("malloc response");
-      log_write(WARN, "Could not alloc space for response\n");
+      log_write(WARN, "Could not alloc space for response : %s",
+                strerror(errno));
       goto free_res;
     }
 
@@ -100,15 +105,14 @@ void communicate(int sockfd, char *addr_str) {
 
     ret = send(sockfd, response, res_size, 0);
     if (ret < 0) {
-      perror("send");
-      log_write(WARN, "Could not send response\n");
+      log_write(WARN, "Could not send response : %s", strerror(errno));
     }
     keepsocket = req.hd.keepalive;
 
     char resheadbuf[500];
     char *del2 = ">>>>>>>>>>>>>>>>>>>>>>OUT>>>>>>>>>>>>>>>>>>>>>>>>>>>";
     build_headers(resheadbuf, &res_hd);
-    log_write(DEBUG, "\n%s\n%s\n%s%s\n\n", addr_str, del2, resheadbuf, del2);
+    log_write(DEBUG, "\n%s\n%s\n%s%s\n", addr_str, del2, resheadbuf, del2);
 
   free_res:
     free(response);

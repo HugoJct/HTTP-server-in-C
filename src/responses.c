@@ -5,8 +5,9 @@
 #include <time.h>
 
 char *response_success = "HTTP/1.1 200 OK";
-const char *bad_request = "HTTP/1.1 400 BAD REQUEST";
-const char *not_found = "HTTP/1.1 404 NOT FOUND";
+static const char *bad_request = "HTTP/1.1 400 BAD REQUEST";
+static const char *not_found = "HTTP/1.1 404 NOT FOUND";
+static const char *internal_server_error = "HTTP/1.1 500 INTERNAL SERVER ERROR";
 
 int build_headers(char *buf, struct http_response *hd) {
 
@@ -41,7 +42,7 @@ int build_response(char *response, struct http_response *rep, char *status,
   strcpy(response + offset, "\r\n");
   offset += 2;
 
-  offset += build_headers(response+offset, rep);
+  offset += build_headers(response + offset, rep);
 
   // end of headers empty line
   strcpy(response + offset, "\r\n");
@@ -67,6 +68,16 @@ int send_not_found(int fd) {
 int send_bad_request(int fd) {
 
   int ret = send(fd, bad_request, strlen(bad_request), 0);
+  if (ret < 0) {
+    return -1;
+  }
+
+  return 0;
+}
+
+int send_internal_server_error(int fd) {
+
+  int ret = send(fd, internal_server_error, strlen(bad_request), 0);
   if (ret < 0) {
     return -1;
   }

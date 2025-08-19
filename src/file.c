@@ -1,17 +1,18 @@
 #include "file.h"
+#include "logger.h"
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
-static char *extensions[] = {
-    "html", "png", "jpeg", "jpg", "bmp", "gif", "ico", "svg", "js", "css" 
-};
+static char *extensions[] = {"html", "png", "jpeg", "jpg", "bmp",
+                             "gif",  "ico", "svg",  "js",  "css"};
 
-static char *types[] = {
-    "text/html", "image/png", "image/jpeg",   "image/jpeg",
-    "image/bmp", "image/gif", "image/x-icon", "image/svg+xml", "text/javascript", "text/css"
-};
+static char *types[] = {"text/html",    "image/png",     "image/jpeg",
+                        "image/jpeg",   "image/bmp",     "image/gif",
+                        "image/x-icon", "image/svg+xml", "text/javascript",
+                        "text/css"};
 
 void get_content_type(char *dest, char *filename) {
 
@@ -39,8 +40,8 @@ size_t get_file_size(int fd) {
 
   struct stat st;
   int ret = fstat(fd, &st);
-  if(ret < 0) {
-    perror("fstat size");
+  if (ret < 0) {
+    log_write(ERROR, "Could not get file size : %s", strerror(errno));
     return -1;
   }
 
@@ -52,8 +53,9 @@ int get_last_modification_date(int fd) {
   struct stat st;
 
   int ret = fstat(fd, &st);
-  if(ret < 0) {
-    perror("fstat");
+  if (ret < 0) {
+    log_write(ERROR, "Could not get file last modification date : %s",
+              strerror(errno));
     return -1;
   }
 

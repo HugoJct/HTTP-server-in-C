@@ -19,6 +19,7 @@ int build_response(char *response, struct http_response *rep, char *status,
                    char *filecontent);
 int send_not_found(int fd);
 int send_bad_request(int fd);
+int send_internal_server_error(int fd);
 
 extern char *response_success;
 
