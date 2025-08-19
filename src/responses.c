@@ -5,9 +5,9 @@
 #include <time.h>
 
 char *response_success = "HTTP/1.1 200 OK";
-static const char *bad_request = "HTTP/1.1 400 BAD REQUEST";
-static const char *not_found = "HTTP/1.1 404 NOT FOUND";
-static const char *internal_server_error = "HTTP/1.1 500 INTERNAL SERVER ERROR";
+static  char *bad_request = "HTTP/1.1 400 Bad Request";
+static  char *not_found = "HTTP/1.1 404 Not Found";
+static  char *internal_server_error = "HTTP/1.1 500 Internal Server Error";
 
 int build_headers(char *buf, struct http_response *hd) {
 
@@ -49,15 +49,26 @@ int build_response(char *response, struct http_response *rep, char *status,
   offset += 2;
 
   // content
-  memcpy(response + offset, filecontent, rep->content_length);
-  offset += rep->content_length;
+  if (filecontent != NULL) {
+    memcpy(response + offset, filecontent, rep->content_length);
+    offset += rep->content_length;
+  }
 
   return offset;
 }
 
 int send_not_found(int fd) {
 
-  int ret = send(fd, not_found, strlen(not_found), 0);
+  char response[500];
+
+  struct http_response res_hd = {
+      .server = "ogu ^3^",
+      .content_length = 0,
+  };
+
+  int res_size = build_response(response, &res_hd, not_found, NULL);
+
+  int ret = send(fd, response, res_size, 0);
   if (ret < 0) {
     return -1;
   }
@@ -67,7 +78,16 @@ int send_not_found(int fd) {
 
 int send_bad_request(int fd) {
 
-  int ret = send(fd, bad_request, strlen(bad_request), 0);
+  char response[500];
+
+  struct http_response res_hd = {
+      .server = "ogu ^3^",
+      .content_length = 0,
+  };
+
+  int res_size = build_response(response, &res_hd, bad_request, NULL);
+
+  int ret = send(fd, response, res_size, 0);
   if (ret < 0) {
     return -1;
   }
@@ -77,7 +97,16 @@ int send_bad_request(int fd) {
 
 int send_internal_server_error(int fd) {
 
-  int ret = send(fd, internal_server_error, strlen(bad_request), 0);
+  char response[500];
+
+  struct http_response res_hd = {
+      .server = "ogu ^3^",
+      .content_length = 0,
+  };
+
+  int res_size = build_response(response, &res_hd, internal_server_error, NULL);
+
+  int ret = send(fd, response, res_size, 0);
   if (ret < 0) {
     return -1;
   }

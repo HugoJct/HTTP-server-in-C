@@ -33,7 +33,7 @@ void communicate(int sockfd, char *addr_str) {
     ret = parse_request(buf, &req);
     if (ret < 0) {
       send_bad_request(sockfd);
-      log_write(WARN, "Bad Request");
+      log_write(WARN, "Bad Request : %s", buf);
       goto end_conn;
     }
 
@@ -54,19 +54,20 @@ void communicate(int sockfd, char *addr_str) {
     if (strcmp(req.cmd.target, "/") == 0) {
       sprintf(path, "./host/index.html");
     } else {
-      sprintf(path, "./host/%s", req.cmd.target);
+      sprintf(path, "./host%s", req.cmd.target);
     }
 
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
-      log_write(INFO, "File not found");
+      log_write(INFO, "File not found %s", path);
       send_not_found(sockfd);
       goto end_conn;
     }
 
     int filesize = get_file_size(fd);
     if (filesize < 0) {
-      send_internal_server_error(fd);
+      send_internal_server_error(sockfd);
+      sleep(1);
       goto end_conn;
     }
 
