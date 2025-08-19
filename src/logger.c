@@ -69,6 +69,10 @@ int set_log_level(int level) {
 
 void log_write(enum LOG_LEVEL level, char *format, ...) {
 
+  if(log_level < level) {
+    return; 
+  }
+
   pthread_mutex_lock(lock);
 
   time_t now = time(NULL);

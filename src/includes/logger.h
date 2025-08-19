@@ -13,7 +13,7 @@
 #define WHITE_BOLD "\033[1;37m"
 
 enum LOG_LEVEL {
-  NONE,
+  NONE = 0,
   ERROR,
   WARN,
   INFO,

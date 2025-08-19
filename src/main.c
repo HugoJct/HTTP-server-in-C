@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <bits/getopt_core.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -8,7 +9,6 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <errno.h>
 
 #include "http.h"
 #include "logger.h"
@@ -27,6 +27,12 @@ int main(int argc, char **argv) {
                "NONE, ERROR, WARN, INFO (default), DEBUG\n"
                "\t-h \t\tDisplay this help";
 
+  ret = log_init();
+  if (ret < 0) {
+    fputs("Error initializing logger", stderr);
+    goto error;
+  }
+
   while ((opt = getopt(argc, argv, "4hp:l:")) != -1) {
     switch (opt) {
     case '4':
@@ -34,6 +40,10 @@ int main(int argc, char **argv) {
       break;
     case 'p':
       port = atoi(optarg);
+      if (port == 0) {
+        log_write(ERROR, "Invalid port value");
+        return EXIT_FAILURE;
+      }
       break;
     case 'l':
       if (strcmp(optarg, "ERROR") == 0) {
@@ -44,11 +54,10 @@ int main(int argc, char **argv) {
         ret = set_log_level(INFO);
       } else if (strcmp(optarg, "DEBUG") == 0) {
         ret = set_log_level(DEBUG);
+      } else if (strcmp(optarg, "NONE") == 0) {
+        ret = set_log_level(NONE);
       } else {
-        ret = -1;
-      }
-      if (ret < 0) {
-        log_write(WARN, "Log level invalid");
+        log_write(WARN, "Log level invalid defaulting to INFO");
       }
       break;
     case 'h':
@@ -57,13 +66,8 @@ int main(int argc, char **argv) {
     }
   }
 
-  ret = log_init();
-  if(ret < 0) {
-    fputs("Error initializing logger", stderr);
-    goto error;
-  }
-
-  log_write(INFO, "Launching on %d %s", port, onlyv6 ? "" : "with IPv4 support");
+  log_write(INFO, "Launching on %d %s", port,
+            onlyv6 ? "" : "with IPv4 support");
 
   int sock = new_ipv6_tcp_socket(port, onlyv6);
   if (sock < 0) {
@@ -87,28 +91,30 @@ int main(int argc, char **argv) {
       goto close_sock_error;
     }
 
-    char *addr_str = malloc(108);
-    if(addr_str == NULL) {
-      continue;
-    }
-
-    char format_tmp[100];
-    inet_ntop(AF_INET6, &remote.sin6_addr, format_tmp, 100);
-    sprintf(addr_str, "[%s]:%d",  format_tmp, remote.sin6_port);
-
     int pid = fork();
     if (pid < 0) {
+
       log_write(ERROR, "Fork error : %s", strerror(errno));
       goto close_sock_error;
+
     } else if (pid == 0) { // child
       close(sock);
+
+      char *addr_str = malloc(108);
+      if (addr_str == NULL) {
+        continue;
+      }
+
+      char format_tmp[100];
+      inet_ntop(AF_INET6, &remote.sin6_addr, format_tmp, 100);
+      sprintf(addr_str, "[%s]:%d", format_tmp, remote.sin6_port);
 
       log_write(INFO, "New connection: %s", addr_str);
 
       communicate(remote_fd, addr_str);
       break;
     }
-    close(remote_fd);
+    close(remote_fd); // close the file descriptor in the parent
   }
 
   return EXIT_SUCCESS;
