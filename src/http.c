@@ -118,4 +118,5 @@ void communicate(int sockfd, char *addr_str) {
 
 end_conn:
   close(sockfd);
+  free(addr_str);
 }

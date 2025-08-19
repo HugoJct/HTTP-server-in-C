@@ -5,3 +5,4 @@ http_server
 compile_flags.txt
 Makefile
 host/
+build/

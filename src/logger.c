@@ -130,6 +130,7 @@ void log_write(enum LOG_LEVEL level, char *format, ...) {
 
   write(fd, &format[start], end - start);
   write(fd, WHITE, strlen(WHITE));
+  write(fd, "\n", 1);
 
   pthread_mutex_unlock(lock);
 }

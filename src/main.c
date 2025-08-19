@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "http.h"
 #include "logger.h"
@@ -62,11 +63,10 @@ int main(int argc, char **argv) {
     goto error;
   }
 
-  log_write(INFO, "Launching on %d %s\n", port, onlyv6 ? "" : "with IPv4 support");
+  log_write(INFO, "Launching on %d %s", port, onlyv6 ? "" : "with IPv4 support");
 
   int sock = new_ipv6_tcp_socket(port, onlyv6);
   if (sock < 0) {
-    log_write(ERROR, "Failed creating socket");
     goto error;
   }
 
@@ -74,8 +74,7 @@ int main(int argc, char **argv) {
 
   ret = listen(sock, 1);
   if (ret < 0) {
-    perror("listen");
-    log_write(ERROR, "Failed listening on socket");
+    log_write(ERROR, "Socket listen error: %s", strerror(errno));
     goto close_sock_error;
   }
 
@@ -84,12 +83,15 @@ int main(int argc, char **argv) {
 
     int remote_fd = accept(sock, (struct sockaddr *)&remote, &length);
     if (remote_fd < 0) {
-      perror("accept");
-      log_write(ERROR, "Failed accepting connection");
+      log_write(ERROR, "Connection acception error : %s", strerror(errno));
       goto close_sock_error;
     }
 
-    char *addr_str = malloc(100);
+    char *addr_str = malloc(108);
+    if(addr_str == NULL) {
+      continue;
+    }
+
     char format_tmp[100];
     inet_ntop(AF_INET6, &remote.sin6_addr, format_tmp, 100);
     sprintf(addr_str, "[%s]:%d",  format_tmp, remote.sin6_port);
@@ -102,7 +104,7 @@ int main(int argc, char **argv) {
     } else if (pid == 0) { // child
       close(sock);
 
-      log_write(INFO, "New connection: %s\n", addr_str);
+      log_write(INFO, "New connection: %s", addr_str);
 
       communicate(remote_fd, addr_str);
       break;

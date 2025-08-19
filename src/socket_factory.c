@@ -1,9 +1,11 @@
 #include "socket_factory.h"
+#include "logger.h"
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <errno.h>
 
 int new_ipv4_tcp_socket(int port) {
 
@@ -43,20 +45,20 @@ int new_ipv6_tcp_socket(int port, int v6only) {
 
   int sock = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
   if (sock < 0) {
-    perror("socket");
+    log_write(ERROR, "Socket creation error : %s", strerror(errno));
     goto new_ipv6_tcp_socket_error;
   }
 
   int flag = 1;
   int ret = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
   if(ret < 0) {
-    perror("setsockopt");
+    log_write(ERROR, "Socket address reuse configuration error : %s", strerror(errno));
     goto new_ipv6_tcp_socket_error;
   }
 
   ret = setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, &v6only, sizeof(v6only));
   if(ret < 0) {
-    perror("setsockopt");
+    log_write(ERROR, "Socket IP protocol version configuration : %s", strerror(errno));
     goto new_ipv6_tcp_socket_error;
   }
 
@@ -68,7 +70,7 @@ int new_ipv6_tcp_socket(int port, int v6only) {
 
   ret = bind(sock, (struct sockaddr*) &addr, sizeof(addr));
   if(ret < 0) {
-    perror("bind");
+    log_write(ERROR, "Socket bind error : %s", strerror(errno));
     goto new_ipv6_tcp_socket_error;
   }
 

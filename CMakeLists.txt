@@ -7,6 +7,7 @@ set(HEADERS_DIR "src/includes")
 set(SOURCES_DIR "src")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(${This} C)
 
